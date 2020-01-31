@@ -1,5 +1,5 @@
 {
-  "name": "@ibrahima/remark-math",
+  "name": "@gradescope/remark-math",
   "description": "Math Inline and Block supporting for Remark",
   "scripts": {
     "postinstall": "lerna bootstrap",
@@ -27,9 +27,9 @@
   "author": "Junyoung Choi <fluke8259@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Rokt33r/remark-math/issues"
+    "url": "https://github.com/gradescope/remark-math/issues"
   },
-  "homepage": "https://github.com/Rokt33r/remark-math#readme",
+  "homepage": "https://github.com/gradescope/remark-math#readme",
   "devDependencies": {
     "babel-core": "^6.26.3",
     "babel-eslint": "^7.2.3",
