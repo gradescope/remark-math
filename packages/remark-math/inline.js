@@ -1,21 +1,18 @@
-function locator (value, fromIndex) {
+function locator(value, fromIndex) {
   return value.indexOf('$', fromIndex)
 }
 
-const ESCAPED_INLINE_MATH = /^\\\$/
-const INLINE_MATH = /^\$((?:\\\$|[^$])+)\$/
-const INLINE_MATH_DOUBLE = /^\$\$((?:\\\$|[^$])+)\$\$/
+const ESCAPED_INLINE_MATH = /^\\\$/ // starts with \$
+const MATH_INLINE = /^\$\$((?:\\\$|[^$])+)\$\$/ // starts with $$, end match $$, capture content
+const MATH_DISPLAY = /^\$\$\$((?:\\\$|[^$])+)\$\$\$/ // starts with $$$, end match $$$, capture content
 
 module.exports = function inlinePlugin (opts) {
   function inlineTokenizer (eat, value, silent) {
-    let isDouble = true
-    let match = INLINE_MATH_DOUBLE.exec(value)
-    if (!match && !opts.disableInlineMathSingle) {
-      match = INLINE_MATH.exec(value)
-      isDouble = false
-    }
-    const escaped = ESCAPED_INLINE_MATH.exec(value)
+    const displayMatch = MATH_DISPLAY.exec(value)
+    const match = displayMatch || MATH_INLINE.exec(value)
+    const isDisplay = !!displayMatch
 
+    const escaped = ESCAPED_INLINE_MATH.exec(value)
     if (escaped) {
       /* istanbul ignore if - never used (yet) */
       if (silent) {
@@ -27,37 +24,43 @@ module.exports = function inlinePlugin (opts) {
       })
     }
 
-    if (value.slice(-2) === '\\$') {
+    if (value.slice(-2) === '\\$') { // ends with \$
       return eat(value)({
         type: 'text',
         value: value.slice(0, -2) + '$'
       })
     }
 
-    if (match) {
-      /* istanbul ignore if - never used (yet) */
-      if (silent) {
-        return true
-      }
+    if (!match) {
+      return
+    }
 
-      const endingDollarInBackticks = match[0].includes('`') && value.slice(match[0].length).includes('`')
-      if (endingDollarInBackticks) {
-        const toEat = value.slice(0, value.indexOf('`'))
-        return eat(toEat)({
-          type: 'text',
-          value: toEat
-        })
-      }
+    /* istanbul ignore if - never used (yet) */
+    if (silent) {
+      return true
+    }
 
-      const trimmedContent = match[1].trim()
+    const fullMatch = match[0]
+    const endingDollarInBackticks = fullMatch.includes('`') && value.slice(fullMatch.length).includes('`')
+    if (endingDollarInBackticks) {
+      const toEat = value.slice(0, value.indexOf('`'))
+      return eat(toEat)({
+        type: 'text',
+        value: toEat
+      })
+    }
 
-      return eat(match[0])({
-        type: 'inlineMath',
+    const captured = match[1]
+    const trimmedContent = captured.trim()
+
+    if (isDisplay) {
+      return eat(fullMatch)({
+        type: 'math-display',
         value: trimmedContent,
         data: {
-          hName: 'span',
+          hName: 'div',
           hProperties: {
-            className: 'inlineMath' + (isDouble && opts.inlineMathDouble ? ' inlineMathDouble' : '')
+            className: 'inlineMath inlineMathDouble math-display'
           },
           hChildren: [
             {
@@ -68,6 +71,23 @@ module.exports = function inlinePlugin (opts) {
         }
       })
     }
+
+    return eat(fullMatch)({
+      type: 'inlineMath', // 'math-inline',
+      value: trimmedContent,
+      data: {
+        hName: 'span',
+        hProperties: {
+          className: 'inlineMath math-inline'
+        },
+        hChildren: [
+          {
+            type: 'text',
+            value: trimmedContent
+          }
+        ]
+      }
+    })
   }
   inlineTokenizer.locator = locator
 
