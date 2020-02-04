@@ -1,16 +1,84 @@
-function locator(value, fromIndex) {
+function locator (value, fromIndex) {
   return value.indexOf('$', fromIndex)
 }
 
 const ESCAPED_INLINE_MATH = /^\\\$/ // starts with \$
-const MATH_INLINE = /^\$\$((?:\\\$|[^$])+)\$\$/ // starts with $$, end match $$, capture content
-const MATH_DISPLAY = /^\$\$\$((?:\\\$|[^$])+)\$\$\$/ // starts with $$$, end match $$$, capture content
+
+/*
+const customDelimiters = {
+  math: {
+    left: '\\$\\$\\$',
+    right: '\\$\\$\\$',
+    matchInclude: ['\\\\\\$', '[^$]'],
+    tagName: 'div',
+    classNames: ['math', 'math-display']
+  },
+  inlineMath: {
+    left: '\\$\\$',
+    right: '\\$\\$',
+    matchInclude: ['\\\\\\$', '[^$]'],
+    tagName: 'span',
+    classNames: ['inlineMath', 'math-inline']
+  }
+} */
+
+const defaultDelimiters = {
+  math: {
+    left: '\\$\\$',
+    right: '\\$\\$',
+    matchInclude: ['\\\\\\$', '[^$]'],
+    tagName: 'span',
+    classNames: ['inlineMath']
+  },
+  inlineMath: {
+    left: '\\$',
+    right: '\\$',
+    matchInclude: ['\\\\\\$', '[^$]'],
+    tagName: 'span',
+    classNames: ['inlineMath']
+  }
+}
+
+function buildMatchers (delimiters) {
+  return Object.keys(delimiters).reduce(function (accum, category) {
+    const categoryInfo = delimiters[category]
+    const left = categoryInfo.left
+    const right = categoryInfo.right
+    const matchInclude = categoryInfo.matchInclude
+    const capture = '((?:' + matchInclude.join('|') + ')+)'
+    accum[category] = new RegExp('^' + left + capture + right)
+    return accum
+  }, {})
+}
+
+function findMatch (matchers, value) {
+  let category = null
+  let match = null
+  for (category in matchers) {
+    const matcher = matchers[category]
+    if (!matcher) {
+      console.log('category', category)
+      console.log('matchers', matchers)
+    }
+    match = matcher.exec(value)
+    if (match) {
+      break
+    }
+  }
+
+  return match && { category, match, fullMatch: match[0], content: match[1].trim() }
+}
 
 module.exports = function inlinePlugin (opts) {
+  const delimiters = (opts && opts.delimiters) || defaultDelimiters
+  if (opts && opts.inlineMathDouble && delimiters.math) {
+    delimiters.math.classNames.push('inlineMathDouble')
+  }
+
+  const matchers = buildMatchers(delimiters)
+
   function inlineTokenizer (eat, value, silent) {
-    const displayMatch = MATH_DISPLAY.exec(value)
-    const match = displayMatch || MATH_INLINE.exec(value)
-    const isDisplay = !!displayMatch
+    const matchData = findMatch(matchers, value)
 
     const escaped = ESCAPED_INLINE_MATH.exec(value)
     if (escaped) {
@@ -31,7 +99,7 @@ module.exports = function inlinePlugin (opts) {
       })
     }
 
-    if (!match) {
+    if (!matchData) {
       return
     }
 
@@ -40,7 +108,7 @@ module.exports = function inlinePlugin (opts) {
       return true
     }
 
-    const fullMatch = match[0]
+    const fullMatch = matchData.fullMatch
     const endingDollarInBackticks = fullMatch.includes('`') && value.slice(fullMatch.length).includes('`')
     if (endingDollarInBackticks) {
       const toEat = value.slice(0, value.indexOf('`'))
@@ -50,40 +118,18 @@ module.exports = function inlinePlugin (opts) {
       })
     }
 
-    const captured = match[1]
-    const trimmedContent = captured.trim()
-
-    if (isDisplay) {
-      return eat(fullMatch)({
-        type: 'math-display',
-        value: trimmedContent,
-        data: {
-          hName: 'div',
-          hProperties: {
-            className: 'inlineMath inlineMathDouble math-display'
-          },
-          hChildren: [
-            {
-              type: 'text',
-              value: trimmedContent
-            }
-          ]
-        }
-      })
-    }
-
     return eat(fullMatch)({
-      type: 'inlineMath', // 'math-inline',
-      value: trimmedContent,
+      type: 'inlineMath',
+      value: matchData.content,
       data: {
-        hName: 'span',
+        hName: delimiters[matchData.category].tagName,
         hProperties: {
-          className: 'inlineMath math-inline'
+          className: delimiters[matchData.category].classNames.join(' ')
         },
         hChildren: [
           {
             type: 'text',
-            value: trimmedContent
+            value: matchData.content
           }
         ]
       }
