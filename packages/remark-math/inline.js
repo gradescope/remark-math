@@ -10,27 +10,6 @@ const NODE_TYPES = {
   MATH_INLINE: 'inlineMath'
 }
 
-/*
-const customModes = {
-  mathDisplay: {
-    nodeType: NODE_TYPES.MATH_DISPLAY,
-    left: /\$\$\$/,
-    right: /\$\$\$/,
-    matchInclude: [/\\\$/, /[^$]/],
-    tagName: 'div',
-    getClassNames: function () { return ['math', 'math-display'] }
-  },
-  mathInline: {
-    nodeType: NODE_TYPES.MATH_INLINE,
-    left: /\$\$/,
-    right: /\$\$/,
-    matchInclude: [/\\\$/, /[^$]/],
-    tagName: 'span',
-    getClassNames: function () { return ['inlineMath', 'math-inline'] }
-  }
-}
-*/
-
 const defaultModes = {
   mathInlineDouble: {
     nodeType: NODE_TYPES.MATH_INLINE,
